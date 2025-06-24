@@ -58,6 +58,18 @@ export default function Signup() {
     }
   };
 
+  const handleLinkedInLogin = () => {
+    const clientId = "77wwpkm9bcdsbe";
+    const redirectUri = "http://127.0.0.1:5000/auth/linkedin/callback";
+    const scope = "openid profile email";
+    const state = Math.random().toString(36).substring(2);
+
+    const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
+      redirectUri
+    )}&scope=${encodeURIComponent(scope)}&state=${state}`;
+    window.location.href = authUrl;
+  };
+
   const renderStep = () => {
     switch (step) {
       case 0:
@@ -83,7 +95,9 @@ export default function Signup() {
             >
               <option value="">-- Choose college --</option>
               {colleges.map((c, i) => (
-                <option key={i} value={c}>{c}</option>
+                <option key={i} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
@@ -134,7 +148,7 @@ export default function Signup() {
         return (
           <button
             type="submit"
-            className="w-full bg-orange-400 hover:bg-orange-500 text-white font-bold py-2 px-4 rounded flex justify-center items-center"
+            className="w-full bg-orange-400 hover:bg-orange-500 text-white font-bold py-2 px-4 rounded flex justify-center items-center mb-4"
           >
             <span className="mr-2">🔐</span> Sign up
           </button>
@@ -154,7 +168,8 @@ export default function Signup() {
           <span>👤</span> Sign up Now
         </h2>
         <p className="text-center text-sm mb-4">
-          Be part of something <strong>great!</strong> Start <strong>learning</strong> and <strong>contributing</strong> with us!
+          Be part of something <strong>great!</strong> Start <strong>learning</strong> and{" "}
+          <strong>contributing</strong> with us!
         </p>
 
         <motion.div
@@ -164,6 +179,15 @@ export default function Signup() {
           transition={{ duration: 0.3 }}
         >
           {renderStep()}
+
+          {/* LinkedIn signup always shown */}
+          <button
+            type="button"
+            onClick={handleLinkedInLogin}
+            className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex justify-center items-center"
+          >
+            <span className="mr-2">🔗</span> Sign up with LinkedIn
+          </button>
         </motion.div>
 
         <div className="flex justify-between mt-4">
@@ -173,14 +197,21 @@ export default function Signup() {
             </button>
           )}
           {step < steps.length - 1 && (
-            <button type="button" onClick={next} className="ml-auto text-sm text-orange-600 underline">
+            <button
+              type="button"
+              onClick={next}
+              className="ml-auto text-sm text-orange-600 underline"
+            >
               Next →
             </button>
           )}
         </div>
 
         <p className="mt-4 text-center text-sm">
-          Already a member? <a href="/login" className="text-orange-500 font-semibold">Login Now →</a>
+          Already a member?{" "}
+          <a href="/login" className="text-orange-500 font-semibold">
+            Login Now →
+          </a>
         </p>
       </form>
     </div>
