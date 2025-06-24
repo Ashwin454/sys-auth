@@ -3,18 +3,20 @@ from flask_cors import CORS
 from flask_bcrypt import Bcrypt
 from flask_mysqldb import MySQL
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from dotenv import load_dotenv
+load_dotenv()
 import MySQLdb.cursors
 import requests
 app = Flask(__name__)
 CORS(app)
 bcrypt = Bcrypt(app)
-
+import os;
 # MySQL Config
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'Ashwin4545#'
+app.config['MYSQL_PASSWORD'] = os.getenv("MYSQL_PASSWORD")
 app.config['MYSQL_DB'] = 'auth_system'
-app.config['JWT_SECRET_KEY'] = 'gd;jgiodjiogj;dioaj;ih;iguuhaeiuhiuaehfiuehfih'  
+app.config['JWT_SECRET_KEY'] = os.getenv("JWT_SECRET_KEY")
 
 mysql = MySQL(app)
 jwt = JWTManager(app)
@@ -40,8 +42,8 @@ def linkedin_callback():
         "grant_type": "authorization_code",
         "code": code,
         "redirect_uri": "http://127.0.0.1:5000/auth/linkedin/callback",  # Important: use 'localhost', not '127.0.0.1'
-        "client_id": os.environ.get("LINKEDIN_CLIENT_ID", "77wwpkm9bcdsbe"),
-        "client_secret": os.environ.get("LINKEDIN_CLIENT_SECRET", "WPL_AP1.NlQCzqs7EXbWsLQ3.z2oZvQ==")
+        "client_id": os.environ.get("LINKEDIN_CLIENT_ID"),
+        "client_secret": os.environ.get("LINKEDIN_CLIENT_SECRET")
     }
 
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
