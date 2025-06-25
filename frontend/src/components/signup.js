@@ -41,7 +41,7 @@ export default function Signup() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:5000/api/signup", {
+      const res = await fetch("https://sys-auth.onrender.com/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -60,7 +60,7 @@ export default function Signup() {
 
   const handleLinkedInLogin = () => {
     const clientId = "77wwpkm9bcdsbe";
-    const redirectUri = "http://127.0.0.1:5000/auth/linkedin/callback";
+    const redirectUri = "https://sys-auth.onrender.com/auth/linkedin/callback";
     const scope = "openid profile email";
     const state = Math.random().toString(36).substring(2);
 

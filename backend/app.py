@@ -48,7 +48,7 @@ def linkedin_callback():
     data = {
         "grant_type": "authorization_code",
         "code": code,
-        "redirect_uri": "http://127.0.0.1:5000/auth/linkedin/callback",
+        "redirect_uri": "https://sys-auth.onrender.com/auth/linkedin/callback",
         "client_id": os.getenv("LINKEDIN_CLIENT_ID"),
         "client_secret": os.getenv("LINKEDIN_CLIENT_SECRET")
     }
@@ -85,7 +85,7 @@ def linkedin_callback():
 
     jwt_token = create_access_token(identity=email)
     query = urlencode({"token": jwt_token})
-    return redirect(f"http://localhost:3000/")
+    return redirect(f"https://sys-auth-1.onrender.com")
 
 @app.route("/api/signup", methods=["POST"])
 def signup():
