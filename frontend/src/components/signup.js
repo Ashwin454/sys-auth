@@ -22,7 +22,7 @@ export default function Signup() {
   useEffect(() => {
     async function fetchColleges() {
       try {
-        const res = await fetch("http://universities.hipolabs.com/search?country=India");
+        const res = await fetch("https://universities.hipolabs.com/search?country=India");
         const data = await res.json();
         setColleges(data.map((c) => c.name).slice(0, 50));
       } catch (e) {
