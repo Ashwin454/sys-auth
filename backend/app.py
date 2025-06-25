@@ -1,33 +1,41 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
-from flask_mysqldb import MySQL
+from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from urllib.parse import urlencode
 from dotenv import load_dotenv
-load_dotenv()
-import MySQLdb.cursors
 import requests
+import os
+
+load_dotenv()
+
 app = Flask(__name__)
 CORS(app)
-bcrypt = Bcrypt(app)
-import os;
-# MySQL Config
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = os.getenv("MYSQL_PASSWORD")
-app.config['MYSQL_DB'] = 'auth_system'
-app.config['JWT_SECRET_KEY'] = os.getenv("JWT_SECRET_KEY")
+Bcrypt = Bcrypt(app)
 
-mysql = MySQL(app)
+# --- Config ---
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite3"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
+
+# --- Init Extensions ---
+db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
-# --------- ROUTES ----------
+# --- Models ---
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(120), nullable=False)
+    college = db.Column(db.String(120))
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    dob = db.Column(db.String(20))
+    password = db.Column(db.String(255))  # hashed
 
-import os
-import requests
-from urllib.parse import urlencode
-from flask import request, jsonify, redirect
+with app.app_context():
+    db.create_all()
 
+# --- Routes ---
 @app.route("/auth/linkedin/callback")
 def linkedin_callback():
     code = request.args.get("code")
@@ -36,14 +44,13 @@ def linkedin_callback():
     if not code:
         return jsonify({"error": "Missing authorization code"}), 400
 
-    # Step 1: Exchange code for access token (OpenID Connect flow)
     token_url = "https://www.linkedin.com/oauth/v2/accessToken"
     data = {
         "grant_type": "authorization_code",
         "code": code,
-        "redirect_uri": "http://127.0.0.1:5000/auth/linkedin/callback",  # Important: use 'localhost', not '127.0.0.1'
-        "client_id": os.environ.get("LINKEDIN_CLIENT_ID"),
-        "client_secret": os.environ.get("LINKEDIN_CLIENT_SECRET")
+        "redirect_uri": "http://127.0.0.1:5000/auth/linkedin/callback",
+        "client_id": os.getenv("LINKEDIN_CLIENT_ID"),
+        "client_secret": os.getenv("LINKEDIN_CLIENT_SECRET")
     }
 
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -56,11 +63,8 @@ def linkedin_callback():
     if not access_token:
         return jsonify({"error": "Access token missing"}), 400
 
-    # Step 2: Get OpenID user info
     userinfo_url = "https://api.linkedin.com/v2/userinfo"
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
+    headers = {"Authorization": f"Bearer {access_token}"}
     userinfo_res = requests.get(userinfo_url, headers=headers)
 
     if userinfo_res.status_code != 200:
@@ -73,22 +77,13 @@ def linkedin_callback():
     if not email:
         return jsonify({"error": "Email not returned by LinkedIn"}), 400
 
-    # Step 3: Create or fetch user from database
-    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    user = cursor.fetchone()
-
+    user = User.query.filter_by(email=email).first()
     if not user:
-        cursor.execute(
-            "INSERT INTO users (username, email, college, dob, password) VALUES (%s, %s, %s, %s, %s)",
-            (full_name, email, "LinkedIn OpenID", "", "")
-        )
-        mysql.connection.commit()
+        user = User(username=full_name, email=email, college="LinkedIn OpenID", dob="", password="")
+        db.session.add(user)
+        db.session.commit()
 
-    # Step 4: Issue JWT token
     jwt_token = create_access_token(identity=email)
-
-    # Step 5: Redirect to frontend with token
     query = urlencode({"token": jwt_token})
     return redirect(f"http://localhost:3000/")
 
@@ -104,24 +99,17 @@ def signup():
 
     if not (username and email and password and confirm and dob):
         return jsonify({"error": "Missing fields"}), 400
-
     if password != confirm:
         return jsonify({"error": "Passwords do not match"}), 400
-
-    cursor = mysql.connection.cursor()
-    cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
-    if cursor.fetchone():
+    if User.query.filter_by(email=email).first():
         return jsonify({"error": "Email already registered"}), 409
 
-    hashed_pw = bcrypt.generate_password_hash(password).decode("utf-8")
-    cursor.execute(
-        "INSERT INTO users (username, college, email, dob, password) VALUES (%s, %s, %s, %s, %s)",
-        (username, college, email, dob, hashed_pw)
-    )
-    mysql.connection.commit()
+    hashed_pw = Bcrypt.generate_password_hash(password).decode("utf-8")
+    user = User(username=username, college=college, email=email, dob=dob, password=hashed_pw)
+    db.session.add(user)
+    db.session.commit()
 
     return jsonify({"message": "User registered successfully"}), 201
-
 
 @app.route("/api/login", methods=["POST"])
 def login():
@@ -129,37 +117,32 @@ def login():
     email = data.get("email")
     password = data.get("password")
 
-    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
-    user = cursor.fetchone()
-
-    if not user or not bcrypt.check_password_hash(user["password"], password):
+    user = User.query.filter_by(email=email).first()
+    if not user or not Bcrypt.check_password_hash(user.password, password):
         return jsonify({"error": "Invalid credentials"}), 401
 
     access_token = create_access_token(identity=email)
     return jsonify({"message": "Login successful", "token": access_token}), 200
 
-
 @app.route("/api/profile", methods=["GET"])
 @jwt_required()
 def profile():
-    current_user = get_jwt_identity()
-    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cursor.execute("SELECT username, email, college FROM users WHERE email=%s", (current_user,))
-    user = cursor.fetchone()
-    return jsonify(user), 200
+    email = get_jwt_identity()
+    user = User.query.filter_by(email=email).first()
+    return jsonify({
+        "username": user.username,
+        "email": user.email,
+        "college": user.college,
+        "dob": user.dob
+    })
 
-
-# OAuth endpoints (Google/GitHub) — mocked for now
 @app.route("/api/oauth/google", methods=["POST"])
 def oauth_google():
-    # Add token verification logic here if needed
     return jsonify({"message": "Google OAuth successful (mocked)"}), 200
 
 @app.route("/api/oauth/github", methods=["POST"])
 def oauth_github():
     return jsonify({"message": "GitHub OAuth successful (mocked)"}), 200
-
 
 if __name__ == "__main__":
     app.run(debug=True)
