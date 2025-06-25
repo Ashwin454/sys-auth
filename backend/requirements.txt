@@ -4,3 +4,6 @@ flask-mysqldb
 flask-bcrypt
 flask-jwt-extended
 python-dotenv
+gunicorn
+requests
+Flask-SQLAlchemy
